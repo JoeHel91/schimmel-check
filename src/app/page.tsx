@@ -198,20 +198,21 @@ doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
   }
 
   if (kommentar) {
-    y += 20;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Kommentar / Beobachtungen", 20, y);
-    y += 8;
+  y += 20;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Kommentar / Beobachtungen", 20, y);
+  y += 8;
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "italic");
-    doc.setFillColor(245);
-    const splitText = doc.splitTextToSize(kommentar, 170);
-    doc.rect(18, y - 6, 174, splitText.length * 6 + 8, "F");
-    doc.text(splitText, 20, y);
-    y += splitText.length * 6 + 10;
-  }
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "italic");
+  doc.setFillColor(245, 245, 245); // FIX: statt nur 245
+  const splitText = doc.splitTextToSize(kommentar, 170);
+  doc.rect(18, y - 6, 174, splitText.length * 6 + 8, "F");
+  doc.text(splitText, 20, y);
+  y += splitText.length * 6 + 10;
+}
+
 
   // Footer
   const date = new Date().toLocaleDateString("de-CH");
