@@ -65,6 +65,19 @@ export default function Page() {
     }
   };
 
+// --- Bewertung Oberflächentemperatur ---
+const tempResult = useMemo(() => {
+  const Tw = toNum(wandTemp);
+
+  if (!Number.isFinite(Tw)) return null;
+
+  if (Tw > 17) return { text: "Unkritisch", color: "text-green-600" };
+  if (Tw > 15) return { text: "Leicht kritisch", color: "text-yellow-600" };
+  if (Tw > 13) return { text: "Sehr kritisch", color: "text-orange-600" };
+  return { text: "Extrem kritisch – Wärmebrücke vorhanden", color: "text-red-600" };
+}, [wandTemp]);
+
+
   // --- SIA Rechner ---
   const siaResult = useMemo(() => {
     const T = toNum(raumTemp);
@@ -172,19 +185,34 @@ const handleExportPDF = () => {
   addRow("Oberflächentemperatur", `${wandTemp} °C`);
   addRow("Aussentemperatur", `${aussenTemp} °C`);
 
-  // Ergebnisse
-  if (result) {
-    y += 12;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Bewertung der betroffenen Fläche", 20, y);
-    y += 10;
+    // Ergebnisse
+if (result) {
+  y += 12;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Bewertung der betroffenen Fläche", 20, y);
+  y += 10;
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    addRow("Oberflächen-Feuchte", `${result.phi_w.toFixed(1)} %`);
-    addRow("Bewertung", result.text);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+
+  // --- NEU: Bewertung Oberflächentemperatur ---
+  const Tw = toNum(wandTemp);
+  let tempBewertung = "";
+  if (Tw > 17) tempBewertung = "Unkritisch";
+  else if (Tw > 15) tempBewertung = "Leicht kritisch";
+  else if (Tw > 13) tempBewertung = "Sehr kritisch";
+  else if (!isNaN(Tw)) tempBewertung = "Extrem kritisch, Wärmebrücke vorhanden";
+
+  if (tempBewertung) {
+    addRow("Bewertung Oberflächentemperatur", `${Tw.toFixed(1)} °C (${tempBewertung})`);
   }
+
+  addRow("Oberflächen-Feuchte", `${result.phi_w.toFixed(1)} %`);
+  addRow("Bewertung", result.text);
+}
+
+
 
   if (siaResult) {
     y += 12;
@@ -267,39 +295,84 @@ const handleExportPDF = () => {
         </div>
 
         {/* Ergebnisse */}
-        {result && (
-          <div className="mt-10 flex flex-col items-center text-center transition-all duration-500 ease-in-out">
-            {icon[result.status as "green" | "yellow" | "red" | "blue"]}
-            <p className={"inline-block mt-4 px-3 py-1 text-sm font-semibold rounded-full " +
-                (result.status === "green" ? "bg-green-100 text-green-700"
-                  : result.status === "yellow" ? "bg-orange-100 text-orange-700"
-                  : result.status === "red" ? "bg-red-100 text-red-700"
-                  : "bg-blue-100 text-blue-700")}>
-              {result.text}
-            </p>
-            <p className="text-gray-700 mt-2 text-lg">
-              Relative Feuchte auf der Oberfläche:{" "}
-              <span className="font-semibold">{result.phi_w.toFixed(1)}%</span>
-            </p>
-            {/* Ampel */}
-            <div className="w-full max-w-sm mt-6 relative">
-              <div className="h-4 w-full rounded-full relative"
-                style={{backgroundImage:"linear-gradient(to right,#22c55e 0%,#22c55e 60%,#f59e0b 70%,#ef4444 100%)"}}/>
-              <div className="absolute top-1/2 -translate-y-1/2"
-                style={{ left: `${mapToBar(result.phi_w)}%` }}>
-                <div className="w-3 h-3 bg-white border border-gray-700 rounded-full shadow-md"></div>
-              </div>
-              {([0, 60, 70, 100] as const).map((t) => (
-                <div key={t} className="absolute -bottom-5 text-[11px] text-gray-500"
-                  style={{ left: `${mapToBar(t)}%`, transform: "translateX(-50%)" }}>{t}%</div>
-              ))}
-            </div>
-          </div>
-        )}
+{result && (
+  <div className="mt-10 flex flex-col items-center text-center transition-all duration-500 ease-in-out">
+    {icon[result.status as "green" | "yellow" | "red" | "blue"]}
+    <p
+      className={
+        "inline-block mt-4 px-3 py-1 text-sm font-semibold rounded-full " +
+        (result.status === "green"
+          ? "bg-green-100 text-green-700"
+          : result.status === "yellow"
+          ? "bg-orange-100 text-orange-700"
+          : result.status === "red"
+          ? "bg-red-100 text-red-700"
+          : "bg-blue-100 text-blue-700")
+      }
+    >
+      {result.text}
+    </p>
+
+    <p className="text-gray-700 mt-2 text-lg">
+      Relative Feuchte auf der Oberfläche:{" "}
+      <span className="font-semibold">{result.phi_w.toFixed(1)}%</span>
+    </p>
+
+    {/* Ampel-Balken */}
+    <div className="w-full max-w-sm mt-6 relative">
+      <div
+        className="h-4 w-full rounded-full relative"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right," +
+            " #22c55e 0%," +
+            " #22c55e 60%," +
+            " #f59e0b 70%," +
+            " #ef4444 100%)",
+        }}
+      />
+      <div
+        className="absolute top-1/2 -translate-y-1/2"
+        style={{ left: `${mapToBar(result.phi_w)}%` }}
+      >
+        <div className="w-3 h-3 bg-white border border-gray-700 rounded-full shadow-md"></div>
+      </div>
+      {([0, 60, 70, 100] as const).map((t) => (
+        <div
+          key={t}
+          className="absolute -bottom-5 text-[11px] text-gray-500"
+          style={{ left: `${mapToBar(t)}%`, transform: "translateX(-50%)" }}
+        >
+          {t}%
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* --- NEU: Box für Oberflächentemperatur --- */}
+{tempResult && (
+  <div className="mt-10 p-6 rounded-2xl bg-white/70 shadow-lg backdrop-blur-md text-center">
+    <h2 className="text-2xl font-bold text-indigo-700 mb-4">
+      Bewertung Oberflächentemperatur
+    </h2>
+    <p className="text-lg">
+      Gemessene Oberflächentemperatur:{" "}
+      <span className="font-semibold">{wandTemp} °C</span>
+    </p>
+    <p className={`mt-2 text-xl font-bold ${tempResult.color}`}>
+      {tempResult.text}
+    </p>
+    <p className="text-gray-600 text-sm mt-2">
+      Skala: &gt;17 °C = Unkritisch · 15–17 °C = leicht kritisch · 13–15 °C = sehr kritisch · &lt;13 °C = extrem kritisch
+    </p>
+  </div>
+)}
+
 
         {siaResult && (
           <div className="mt-16 p-6 rounded-2xl bg-white/70 shadow-lg backdrop-blur-md">
-            <h2 className="text-2xl font-bold text-indigo-700 mb-4">SIA-Konformitätsprüfung</h2>
+            <h2 className="text-2xl font-bold text-indigo-700 mb-4">SIA-Konformitätsprüfung des Raumklimas</h2>
             <p className="text-lg">Grenzwert nach SIA:{" "}
               <span className="font-semibold">{siaResult.phi_i_max.toFixed(1)} %</span>
             </p>
