@@ -99,48 +99,68 @@ export default function Page() {
 
     if (Tw < 13) {
       if (phi > phi_i_max) {
-        return { schuld: "Gebäude + Nutzer (beides kritisch)", color: "text-red-600" };
+        return { schuld: "Ursache Gebäude + Nutzer (beides kritisch)", color: "text-red-600" };
       } else {
-        return { schuld: "Gebäudeseitig (Oberfläche < 13°C)", color: "text-red-600" };
+        return { schuld: "Ursache Gebäudeseitig (Oberfläche < 13°C)", color: "text-red-600" };
       }
     }
 
     if (isSiaOk && phi < 70 && phi_w > 70) {
-      return { schuld: "Gebäudeseitig", color: "text-red-600" };
+      return { schuld: "Ursache Gebäudeseitig", color: "text-red-600" };
     }
 
     if (phi > phi_i_max) {
-      return { schuld: "Nutzerseitig", color: "text-orange-600" };
+      return { schuld: "Ursache Nutzerseitig", color: "text-orange-600" };
     }
 
-    return { schuld: "Gemischt / unklar", color: "text-gray-600" };
+    return { schuld: "Ursache Gemischt / unklar", color: "text-gray-600" };
   }, [result, siaResult, relFeuchte, wandTemp]);
 
-// --- PDF Export (verbessert & mit Layout) ---
+// --- PDF Export (Header mit Linie direkt nach Titel) ---
 const handleExportPDF = () => {
+  // Eingabeaufforderung für Objektdaten
+  const adresse = window.prompt("Bitte Objektadresse eingeben:");
+  if (!adresse) {
+    alert("Objektadresse ist Pflicht!");
+    return;
+  }
+
+  const wohnung = window.prompt("Bitte Wohnung / Name eingeben:");
+  if (!wohnung) {
+    alert("Wohnung / Name ist Pflicht!");
+    return;
+  }
+
   const doc = new jsPDF();
   doc.setFont("helvetica", "normal");
 
   const img = new Image();
-img.src = "/logo.png"; // weil es im public-Ordner liegt
-doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
-
+  img.src = "/logo.png"; // im public-Ordner
+  doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
 
   // Header
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.text("Auswertung Schimmel-Check", 55, 20);
+
+  // Linie direkt nach Header
   doc.setLineWidth(0.5);
   doc.line(20, 28, 190, 28);
+
+  // --- Neue Zeilen mit Objektdaten ---
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Objektadresse: ${adresse}`, 20, 40);
+  doc.text(`Wohnung / Name: ${wohnung}`, 20, 48);
 
   // Basisdaten
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Basisdaten, Durchschnittswerte", 20, 40);
+  doc.text("Basisdaten, Durchschnittswerte", 20, 60);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  let y = 50;
+  let y = 70;
   const addRow = (label: string, value: string) => {
     doc.text(label, 20, y);
     doc.text(value, 120, y);
@@ -148,7 +168,7 @@ doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
   };
 
   addRow("Raumtemperatur", `${raumTemp} °C`);
-  addRow("Relative Luftfeuchte", `${relFeuchte} %`);
+  addRow("Relative Luftfeuchtigkeit", `${relFeuchte} %`);
   addRow("Oberflächentemperatur", `${wandTemp} °C`);
   addRow("Aussentemperatur", `${aussenTemp} °C`);
 
@@ -170,26 +190,21 @@ doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
     y += 12;
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Bewertung nach SIA 180", 20, y);
+    doc.text("Bewertung des Raumklimas nach SIA 180", 20, y);
     y += 10;
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    addRow(
-      "Max. erlaubte rel. Feuchte",
-      `${siaResult.phi_i_max.toFixed(1)} %`
-    );
-    addRow(
-      "SIA Bewertung",
-      siaResult.isOk ? "SIA-konform" : "Nicht SIA-konform"
-    );
+    addRow("Gemessene rel. Luftfeuchtigkeit", `${relFeuchte} %`);
+    addRow("Max. erlaubte rel. Luftfeuchtigkeit", `${siaResult.phi_i_max.toFixed(1)} %`);
+    addRow("SIA Bewertung", siaResult.isOk ? "SIA-konform" : "Nicht SIA-konform");
   }
 
   if (schuldResult) {
     y += 12;
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Schlussfolgerung", 20, y);
+    doc.text("Schlussfolgerung basierend auf Messdaten", 20, y);
     y += 10;
 
     doc.setFontSize(11);
@@ -198,21 +213,20 @@ doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
   }
 
   if (kommentar) {
-  y += 20;
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("Kommentar / Beobachtungen", 20, y);
-  y += 8;
+    y += 20;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Kommentar / Beobachtungen", 20, y);
+    y += 8;
 
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "italic");
-  doc.setFillColor(245, 245, 245); // FIX: statt nur 245
-  const splitText = doc.splitTextToSize(kommentar, 170);
-  doc.rect(18, y - 6, 174, splitText.length * 6 + 8, "F");
-  doc.text(splitText, 20, y);
-  y += splitText.length * 6 + 10;
-}
-
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.setFillColor(245, 245, 245);
+    const splitText = doc.splitTextToSize(kommentar, 170);
+    doc.rect(18, y - 6, 174, splitText.length * 6 + 8, "F");
+    doc.text(splitText, 20, y);
+    y += splitText.length * 6 + 10;
+  }
 
   // Footer
   const date = new Date().toLocaleDateString("de-CH");
@@ -225,6 +239,7 @@ doc.addImage(img, "PNG", 20, 10, 30, 15); // x, y, breite, höhe
 
   doc.save("schimmel-check.pdf");
 };
+
 
 
   return (
